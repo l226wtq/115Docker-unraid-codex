@@ -10,14 +10,21 @@
 - **优化配置**: 预配置的浏览器参数，优化性能和稳定性
 
 ## 🚀 快速开始
+
+### 构建本地镜像
+```bash
+git clone https://github.com/dream10201/115Docker.git
+cd 115Docker
+docker build -t 115docker:unraid .
+```
+
 ### Docker CLI
 ```bash
 docker run \
 --name 115docker \
 --security-opt seccomp:unconfined \
--e PUID=0 \
--e PGID=0 \
---user 0:0 \
+-e PUID=99 \
+-e PGID=100 \
 --network=host -d \
 -e PASSWORD=123456 \
 -e DISPLAY_WIDTH=1920 \
@@ -28,11 +35,33 @@ docker run \
 -e COOKIE_KID="xxxxxxxxx" \
 -e TZ=Asia/Shanghai \
 -e LC_ALL=zh_CN.UTF-8 \
--v /path/to/download:/opt/Downloads \
+-v /mnt/user/appdata/115docker:/etc/115 \
+-v /mnt/user/downloads:/opt/Downloads \
 --shm-size 1gb \
 --restart unless-stopped \
-ghcr.io/dream10201/115docker:latest
+115docker:unraid
 ```
+
+### Docker Compose
+```bash
+docker compose up -d --build
+```
+
+### Unraid 权限建议
+
+Unraid 默认共享目录通常使用 `nobody:users`，对应 `PUID=99`、`PGID=100`。本镜像入口脚本会先用 root 完成初始化和权限修复，然后将 noVNC、VNC、桌面和 115 浏览器进程降权到 `PUID:PGID` 运行，避免 `/mnt/user/appdata/115docker` 和下载目录生成 root 文件。
+
+在 Unraid 模板中建议：
+
+| 项目 | 建议值 |
+|------|--------|
+| `PUID` | `99` |
+| `PGID` | `100` |
+| `/etc/115` | `/mnt/user/appdata/115docker` |
+| `/opt/Downloads` | `/mnt/user/downloads` |
+
+不要额外设置 Docker 的 `--user 99:100`，让入口脚本保留 root 初始化阶段即可；如果强制使用 `--user`，容器仍会尽量运行，但无法自动修复已存在挂载目录的属主。
+
 ### 访问服务
 [http://localhost:1150/vnc.html](http://localhost:1150/vnc.html)
 
@@ -42,6 +71,8 @@ ghcr.io/dream10201/115docker:latest
 
 | 变量名 | 默认值 | 说明 |
 |--------|--------|------|
+| `PUID` | 99 | 运行 115 浏览器的用户 ID，Unraid 默认为 99 |
+| `PGID` | 100 | 运行 115 浏览器的用户组 ID，Unraid 默认为 100 |
 | `PASSWORD` | "" | WEB VNC密码 |
 | `COOKIE_CID` | "" | Cookie | 用于自动登录 |
 | `COOKIE_SEID` | "" | Cookie | 用于自动登录 |
@@ -71,4 +102,3 @@ ghcr.io/dream10201/115docker:latest
 ---
 
 **注意**: 本项目与 115 官方无关，仅为第三方 Docker 化解决方案。使用前请确保遵守 115 服务条款。
-

@@ -2,17 +2,17 @@ version: '3.8'
 
 services:
   115docker:
-    image: ghcr.io/dream10201/115docker:latest
+    build: .
+    image: 115docker:unraid
     container_name: 115docker
     restart: unless-stopped
     network_mode: host
     security_opt:
       - seccomp:unconfined
     shm_size: 1gb
-    user: "0:0"
     environment:
-      PUID: 0
-      PGID: 0
+      PUID: 99
+      PGID: 100
       PASSWORD: "123456"
       DISPLAY_WIDTH: "1920"
       DISPLAY_HEIGHT: "1080"
@@ -23,4 +23,5 @@ services:
       TZ: "Asia/Shanghai"
       LC_ALL: "zh_CN.UTF-8"
     volumes:
-      - /path/to/download:/opt/Downloads
+      - /mnt/user/appdata/115docker:/etc/115
+      - /mnt/user/downloads:/opt/Downloads

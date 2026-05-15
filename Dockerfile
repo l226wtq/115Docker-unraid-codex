@@ -5,9 +5,11 @@ ENV \
     HOME=/opt \
     DISPLAY=:115 \
     WEB_PORT=1150 \
+    PUID=99 \
+    PGID=100 \
     LD_LIBRARY_PATH=/usr/local/115Browser:\$LD_LIBRARY_PATH
 RUN apt update \
-    && apt install -y --no-install-recommends libnss3 libgbm1 \
+    && apt install -y --no-install-recommends libnss3 libgbm1 passwd \
     && export VERSION=`curl -k -s https://appversion.115.com/1/web/1.0/api/getMultiVer | jq '.data["Linux-115chrome"].version_code'  | tr -d '"'` \
     && wget -q --no-check-certificate "https://down.115.com/client/115pc/lin/115br_v${VERSION}.deb" -O /tmp/tmp.deb \
     && apt install /tmp/tmp.deb  \
@@ -15,7 +17,8 @@ RUN apt update \
     && wget --no-check-certificate -q https://github.com/dream10201/115Cookie/archive/refs/heads/master.zip -O /tmp/tmp.zip \
     && unzip -j /tmp/tmp.zip -d /usr/local/115Cookie/ \
     && rm /tmp/tmp.zip \
-    && mkdir -p /opt/Desktop \
+    && chmod -R a+rwX /usr/local/115Cookie \
+    && mkdir -p /opt/Desktop /opt/.vnc /opt/Downloads \
     && cp /usr/share/applications/115Browser.desktop /opt/Desktop \
     && cp /usr/share/applications/pcmanfm.desktop /opt/Desktop \
     && chmod 777 -R /opt \
@@ -48,6 +51,7 @@ RUN apt update \
     --disable-smooth-scrolling \
     --lang=zh-CN \
     >/tmp/115Browser.log 2>&1 &" >> /usr/local/115Browser/115.sh \
+    && chmod 755 /usr/local/115Browser/115.sh \
     && apt clean -y \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
