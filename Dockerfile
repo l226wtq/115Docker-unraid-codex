@@ -7,6 +7,11 @@ ENV \
     WEB_PORT=1150 \
     PUID=99 \
     PGID=100 \
+    UMASK=000 \
+    DOWNLOAD_PERMISSION_FIX=1 \
+    DOWNLOAD_PERMISSION_FIX_INTERVAL=30 \
+    DOWNLOAD_FILE_MODE=666 \
+    DOWNLOAD_DIR_MODE=777 \
     LD_LIBRARY_PATH=/usr/local/115Browser:\$LD_LIBRARY_PATH
 RUN apt update \
     && apt install -y --no-install-recommends libnss3 libgbm1 passwd \
@@ -18,7 +23,7 @@ RUN apt update \
     && unzip -j /tmp/tmp.zip -d /usr/local/115Cookie/ \
     && rm /tmp/tmp.zip \
     && chmod -R a+rwX /usr/local/115Cookie \
-    && mkdir -p /opt/Desktop /opt/.vnc /opt/Downloads \
+    && mkdir -p /opt/Desktop /opt/Downloads \
     && cp /usr/share/applications/115Browser.desktop /opt/Desktop \
     && cp /usr/share/applications/pcmanfm.desktop /opt/Desktop \
     && chmod 777 -R /opt \

@@ -12,7 +12,20 @@ export DISPLAY_WIDTH=${DISPLAY_WIDTH:-1366}
 export DISPLAY_HEIGHT=${DISPLAY_HEIGHT:-768}
 export PUID=${PUID:-99}
 export PGID=${PGID:-100}
+export UMASK=${UMASK:-000}
+export DOWNLOAD_PERMISSION_FIX=${DOWNLOAD_PERMISSION_FIX:-1}
+export DOWNLOAD_PERMISSION_FIX_INTERVAL=${DOWNLOAD_PERMISSION_FIX_INTERVAL:-30}
+export DOWNLOAD_FILE_MODE=${DOWNLOAD_FILE_MODE:-666}
+export DOWNLOAD_DIR_MODE=${DOWNLOAD_DIR_MODE:-777}
+export XDG_CONFIG_HOME=${XDG_CONFIG_HOME:-${HOME}/.config}
 
+if ! umask "${UMASK}" 2>/dev/null; then
+    echo "Warning: invalid UMASK '${UMASK}', falling back to 000."
+    umask 000
+fi
+
+VNC_CONFIG_DIR="${XDG_CONFIG_HOME}/tigervnc"
+LEGACY_VNC_DIR="${HOME}/.vnc"
 VNC_PORT=$((5900 + ${DISPLAY#:}))
 UI_JS_PATH="${NO_VNC_HOME}/app/ui.js"
 COOKIE_FILE="/usr/local/115Cookie/worker.js"
@@ -20,12 +33,39 @@ RUN_USER_NAME=${RUN_USER_NAME:-appuser}
 RUN_GROUP_NAME=${RUN_GROUP_NAME:-appgroup}
 
 ensure_runtime_dirs() {
-    mkdir -p "${HOME}/.vnc" /etc/115 /opt/Downloads
+    mkdir -p "${VNC_CONFIG_DIR}" /etc/115 /opt/Downloads /tmp/.X11-unix
+    chmod 1777 /tmp/.X11-unix 2>/dev/null || true
 }
 
 cleanup_runtime_locks() {
-    rm -rf /tmp/.X11-unix/X${DISPLAY#:} "/tmp/.X${DISPLAY#:}-lock" "${HOME}"/.vnc/*.pid "${HOME}"/.vnc/*.log
+    rm -rf /tmp/.X11-unix/X${DISPLAY#:} "/tmp/.X${DISPLAY#:}-lock" "${VNC_CONFIG_DIR}"/*.pid "${VNC_CONFIG_DIR}"/*.log
     rm -rf /etc/115/SingletonLock /etc/115/SingletonSocket /etc/115/SingletonCookie
+}
+
+cleanup_legacy_vnc_dir() {
+    [ -d "${LEGACY_VNC_DIR}" ] || return
+
+    rm -f "${LEGACY_VNC_DIR}/config" "${LEGACY_VNC_DIR}/passwd" "${LEGACY_VNC_DIR}"/*.pid "${LEGACY_VNC_DIR}"/*.log 2>/dev/null || true
+    rmdir "${LEGACY_VNC_DIR}" 2>/dev/null || true
+}
+
+fix_download_permissions() {
+    [ -d /opt/Downloads ] || return
+
+    find /opt/Downloads -type d ! -perm -"${DOWNLOAD_DIR_MODE}" -exec chmod "${DOWNLOAD_DIR_MODE}" {} + 2>/dev/null || true
+    find /opt/Downloads -type f ! -perm -"${DOWNLOAD_FILE_MODE}" -exec chmod "${DOWNLOAD_FILE_MODE}" {} + 2>/dev/null || true
+}
+
+start_download_permission_fix() {
+    [ "${DOWNLOAD_PERMISSION_FIX}" = "1" ] || return
+
+    fix_download_permissions
+    (
+        while true; do
+            sleep "${DOWNLOAD_PERMISSION_FIX_INTERVAL}"
+            fix_download_permissions
+        done
+    ) &
 }
 
 configure_cookie() {
@@ -80,10 +120,11 @@ prepare_root_permissions() {
     fi
 
     chown "${PUID}:${PGID}" "${HOME}" /etc/115 /opt/Downloads 2>/dev/null || true
-    chmod ug+rwX "${HOME}" /etc/115 /opt/Downloads 2>/dev/null || true
-    chown -R "${PUID}:${PGID}" "${HOME}/.vnc" "${HOME}/Desktop" /etc/115 2>/dev/null || true
-    chmod -R ug+rwX "${HOME}/.vnc" "${HOME}/Desktop" /etc/115 2>/dev/null || true
+    chmod ug+rwX "${HOME}" /etc/115 /opt/Downloads "${XDG_CONFIG_HOME}" "${VNC_CONFIG_DIR}" 2>/dev/null || true
+    chown -R "${PUID}:${PGID}" "${VNC_CONFIG_DIR}" "${HOME}/Desktop" /etc/115 2>/dev/null || true
+    chmod -R ug+rwX "${VNC_CONFIG_DIR}" "${HOME}/Desktop" /etc/115 2>/dev/null || true
     [ -d /usr/local/115Cookie ] && chmod -R a+rwX /usr/local/115Cookie 2>/dev/null || true
+    [ "${DOWNLOAD_PERMISSION_FIX}" = "1" ] && fix_download_permissions
 
     export RUN_AS_USER="${user_name}"
     export RUN_AS_GROUP="${group_name}"
@@ -117,21 +158,25 @@ drop_privileges_if_needed() {
 
 ensure_runtime_dirs
 cleanup_runtime_locks
+cleanup_legacy_vnc_dir
 configure_cookie
 configure_novnc_auth
 drop_privileges_if_needed
 ensure_runtime_dirs
 cleanup_runtime_locks
+cleanup_legacy_vnc_dir
+start_download_permission_fix
 
-echo "geometry=${DISPLAY_WIDTH}x${DISPLAY_HEIGHT}" > "${HOME}/.vnc/config"
+echo "geometry=${DISPLAY_WIDTH}x${DISPLAY_HEIGHT}" > "${VNC_CONFIG_DIR}/config"
 
 if [ -n "${PASSWORD}" ]; then
-    export PASSWD_PATH="${HOME}/.vnc/passwd"
+    export PASSWD_PATH="${VNC_CONFIG_DIR}/passwd"
     echo "${PASSWORD}" | vncpasswd -f >"${PASSWD_PATH}"
     chmod 0600 "${PASSWD_PATH}"
-    echo "securitytypes=VncAuth" >> "${HOME}/.vnc/config"
+    echo "securitytypes=VncAuth" >> "${VNC_CONFIG_DIR}/config"
+    echo "PasswordFile=${PASSWD_PATH}" >> "${VNC_CONFIG_DIR}/config"
 else
-    echo "securitytypes=None" >> "${HOME}/.vnc/config"
+    echo "securitytypes=None" >> "${VNC_CONFIG_DIR}/config"
 fi
 
 echo "Starting noVNC on port ${WEB_PORT}..."

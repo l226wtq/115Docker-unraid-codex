@@ -13,6 +13,11 @@ services:
     environment:
       PUID: 99
       PGID: 100
+      UMASK: "000"
+      DOWNLOAD_PERMISSION_FIX: "1"
+      DOWNLOAD_PERMISSION_FIX_INTERVAL: "30"
+      DOWNLOAD_FILE_MODE: "666"
+      DOWNLOAD_DIR_MODE: "777"
       PASSWORD: "123456"
       DISPLAY_WIDTH: "1920"
       DISPLAY_HEIGHT: "1080"

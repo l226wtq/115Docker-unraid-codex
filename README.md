@@ -25,6 +25,11 @@ docker run \
 --security-opt seccomp:unconfined \
 -e PUID=99 \
 -e PGID=100 \
+-e UMASK=000 \
+-e DOWNLOAD_PERMISSION_FIX=1 \
+-e DOWNLOAD_PERMISSION_FIX_INTERVAL=30 \
+-e DOWNLOAD_FILE_MODE=666 \
+-e DOWNLOAD_DIR_MODE=777 \
 --network=host -d \
 -e PASSWORD=123456 \
 -e DISPLAY_WIDTH=1920 \
@@ -57,10 +62,17 @@ Unraid 默认共享目录通常使用 `nobody:users`，对应 `PUID=99`、`PGID=
 |------|--------|
 | `PUID` | `99` |
 | `PGID` | `100` |
+| `UMASK` | `000` |
+| `DOWNLOAD_PERMISSION_FIX` | `1` |
+| `DOWNLOAD_PERMISSION_FIX_INTERVAL` | `30` |
+| `DOWNLOAD_FILE_MODE` | `666` |
+| `DOWNLOAD_DIR_MODE` | `777` |
 | `/etc/115` | `/mnt/user/appdata/115docker` |
 | `/opt/Downloads` | `/mnt/user/downloads` |
 
 不要额外设置 Docker 的 `--user 99:100`，让入口脚本保留 root 初始化阶段即可；如果强制使用 `--user`，容器仍会尽量运行，但无法自动修复已存在挂载目录的属主。
+
+下载文件权限默认会被修正为 `nobody:users` 可读写的 `rw-rw-rw-`，下载目录会被修正为 `rwxrwxrwx`。如果只想依赖程序自身创建权限，可以设置 `DOWNLOAD_PERMISSION_FIX=0`。
 
 ### 访问服务
 [http://localhost:1150/vnc.html](http://localhost:1150/vnc.html)
@@ -73,6 +85,11 @@ Unraid 默认共享目录通常使用 `nobody:users`，对应 `PUID=99`、`PGID=
 |--------|--------|------|
 | `PUID` | 99 | 运行 115 浏览器的用户 ID，Unraid 默认为 99 |
 | `PGID` | 100 | 运行 115 浏览器的用户组 ID，Unraid 默认为 100 |
+| `UMASK` | 000 | 进程默认创建权限掩码，`000` 通常对应文件 `666`、目录 `777` |
+| `DOWNLOAD_PERMISSION_FIX` | 1 | 是否后台修正 `/opt/Downloads` 权限，`1` 开启，`0` 关闭 |
+| `DOWNLOAD_PERMISSION_FIX_INTERVAL` | 30 | 下载目录权限修正间隔，单位秒 |
+| `DOWNLOAD_FILE_MODE` | 666 | 下载文件修正后的权限 |
+| `DOWNLOAD_DIR_MODE` | 777 | 下载目录修正后的权限 |
 | `PASSWORD` | "" | WEB VNC密码 |
 | `COOKIE_CID` | "" | Cookie | 用于自动登录 |
 | `COOKIE_SEID` | "" | Cookie | 用于自动登录 |
@@ -85,7 +102,7 @@ Unraid 默认共享目录通常使用 `nobody:users`，对应 `PUID=99`、`PGID=
 
 | 容器路径 | 说明 |
 |----------|------|
-| `/etc/115` | 115 浏览器用户数据目录，存储浏览记录、登录信息等 |
+| `/etc/115` | 115 浏览器用户数据目录，存储登录态、Cookie、浏览器配置、扩展状态等 |
 | `/opt/Downloads` | 下载目录 |
 
 ## 📄 许可证
